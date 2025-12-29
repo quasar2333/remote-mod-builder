@@ -1,0 +1,143 @@
+name: Build Any Mod
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: 'Repository URL (e.g., https://github.com/FabricMC/yarn or owner/repo)'
+        required: true
+        type: string
+      branch:
+        description: 'Branch/Tag to build (e.g., 1.21.8, master, v1.0.0)'
+        required: true
+        default: 'main'
+        type: string
+      java_version:
+        description: 'Java version to use'
+        required: true
+        default: '21'
+        type: choice
+        options:
+          - '8'
+          - '11'
+          - '17'
+          - '21'
+      build_command:
+        description: 'Build command (leave empty for auto-detect)'
+        required: false
+        default: ''
+        type: string
+      artifact_path:
+        description: 'Path to artifacts (comma-separated, e.g., build/libs/*.jar,output/)'
+        required: false
+        default: 'build/libs/*.jar'
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Parse repository URL
+        id: parse_repo
+        run: |
+          REPO_URL="${{ github.event.inputs.repo_url }}"
+          # Handle full URLs
+          if [[ "$REPO_URL" == https://github.com/* ]]; then
+            REPO_URL=$(echo "$REPO_URL" | sed 's|https://github.com/||' | sed 's|\.git$||' | sed 's|/$||')
+          fi
+          echo "repo=$REPO_URL" >> $GITHUB_OUTPUT
+          echo "Parsed repository: $REPO_URL"
+
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.parse_repo.outputs.repo }}
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
+
+      - name: Set up JDK ${{ github.event.inputs.java_version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ github.event.inputs.java_version }}
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Detect build system
+        id: detect
+        run: |
+          if [ -f "gradlew" ]; then
+            echo "build_system=gradle" >> $GITHUB_OUTPUT
+            echo "build_cmd=./gradlew build --no-daemon --stacktrace" >> $GITHUB_OUTPUT
+          elif [ -f "pom.xml" ]; then
+            echo "build_system=maven" >> $GITHUB_OUTPUT
+            echo "build_cmd=mvn package -B" >> $GITHUB_OUTPUT
+          elif [ -f "build.gradle" ]; then
+            echo "build_system=gradle" >> $GITHUB_OUTPUT
+            echo "build_cmd=gradle build --no-daemon --stacktrace" >> $GITHUB_OUTPUT
+          else
+            echo "build_system=unknown" >> $GITHUB_OUTPUT
+            echo "build_cmd=echo 'No build system detected'" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Grant execute permission for gradlew
+        if: steps.detect.outputs.build_system == 'gradle'
+        run: |
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+          fi
+
+      - name: Build project
+        run: |
+          CUSTOM_CMD="${{ github.event.inputs.build_command }}"
+          if [ -n "$CUSTOM_CMD" ]; then
+            echo "Using custom build command: $CUSTOM_CMD"
+            eval "$CUSTOM_CMD"
+          else
+            echo "Using detected build command: ${{ steps.detect.outputs.build_cmd }}"
+            ${{ steps.detect.outputs.build_cmd }}
+          fi
+
+      - name: Prepare artifact paths
+        id: artifacts
+        run: |
+          PATHS="${{ github.event.inputs.artifact_path }}"
+          # Convert comma-separated paths to newline-separated for upload
+          echo "paths<<EOF" >> $GITHUB_OUTPUT
+          echo "$PATHS" | tr ',' '\n' >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.event.inputs.branch }}-${{ github.run_number }}
+          path: ${{ steps.artifacts.outputs.paths }}
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: List built files
+        run: |
+          echo "=== Built files ==="
+          find . -name "*.jar" -type f 2>/dev/null | head -50 || true
+          echo "=== Build directory ==="
+          ls -la build/libs/ 2>/dev/null || echo "No build/libs directory"
+
+      - name: Create Release
+        if: success()
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.branch }}-build-${{ github.run_number }}
+          name: "${{ steps.parse_repo.outputs.repo }} @ ${{ github.event.inputs.branch }} (#${{ github.run_number }})"
+          files: |
+            build/libs/*.jar
+          draft: false
+          prerelease: false
+          body: |
+            ## Build Information
+            - **Source Repository**: `${{ steps.parse_repo.outputs.repo }}`
+            - **Branch/Tag**: `${{ github.event.inputs.branch }}`
+            - **Java Version**: `${{ github.event.inputs.java_version }}`
+            - **Build System**: `${{ steps.detect.outputs.build_system }}`
+            - **Build Number**: `#${{ github.run_number }}`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
