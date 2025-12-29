@@ -1,0 +1,124 @@
+# 鏋勫缓绀轰緥閰嶇疆
+# 杩欎簺鏄父鐢ㄦā缁?椤圭洰鐨勬瀯寤洪厤缃ず渚?
+
+examples:
+  # === Fabric 鐢熸€?===
+  
+  fabric_yarn_mappings:
+    name: "Fabric Yarn Mappings"
+    description: "Fabric 瀹樻柟鍙嶆贩娣嗘槧灏勮〃"
+    repo_url: "FabricMC/yarn"
+    branch: "1.21.8"
+    java_version: "21"
+    artifact_path: "build/libs/*.jar"
+    
+  fabric_api:
+    name: "Fabric API"
+    description: "Fabric 妯＄粍寮€鍙戝繀澶?API"
+    repo_url: "FabricMC/fabric"
+    branch: "1.21.4"
+    java_version: "21"
+    artifact_path: "fabric-api-bom/build/libs/*.jar"
+    
+  fabric_loader:
+    name: "Fabric Loader"
+    description: "Fabric 妯＄粍鍔犺浇鍣?
+    repo_url: "FabricMC/fabric-loader"
+    branch: "master"
+    java_version: "17"
+    
+  # === 澶氬钩鍙版ā缁?(Architectury) ===
+  
+  obs_overlay:
+    name: "OBS Overlay"
+    description: "闅愯棌 OBS 鐩存挱涓殑 HUD 缁勪欢"
+    repo_url: "zziger/obs-overlay"
+    branch: "1.21.4"
+    java_version: "21"
+    artifact_path: "fabric/build/libs/*.jar,neoforge/build/libs/*.jar"
+    
+  # === NeoForge 鐢熸€?===
+  
+  neoforge_mod_template:
+    name: "NeoForge Mod"
+    description: "NeoForge 妯＄粍妯℃澘"
+    repo_url: "owner/neoforge-mod"
+    branch: "1.21.4"
+    java_version: "21"
+    build_command: "./gradlew build -x test"
+    
+  # === 鏃х増鏈?Forge ===
+  
+  forge_1_12_mod:
+    name: "Forge 1.12.2 Mod"
+    description: "鑰佺増鏈?Forge 妯＄粍"
+    repo_url: "owner/old-forge-mod"
+    branch: "1.12.2"
+    java_version: "8"
+    build_command: "./gradlew build -x test"
+    
+  forge_1_16_mod:
+    name: "Forge 1.16.5 Mod"
+    description: "Forge 1.16.5 妯＄粍"
+    repo_url: "owner/forge-mod"
+    branch: "1.16.5"
+    java_version: "8"
+    
+  forge_1_18_mod:
+    name: "Forge 1.18.2 Mod"
+    description: "Forge 1.18.2 妯＄粍"
+    repo_url: "owner/forge-mod"
+    branch: "1.18.2"
+    java_version: "17"
+    
+  # === 宸ュ叿绫婚」鐩?===
+  
+  mapping_io:
+    name: "Mapping IO"
+    description: "鏄犲皠鏂囦欢璇诲啓搴?
+    repo_url: "FabricMC/mapping-io"
+    branch: "master"
+    java_version: "17"
+    
+  tiny_remapper:
+    name: "Tiny Remapper"
+    description: "瀛楄妭鐮侀噸鏄犲皠宸ュ叿"
+    repo_url: "FabricMC/tiny-remapper"
+    branch: "master"
+    java_version: "17"
+
+# Java 鐗堟湰瀵圭収琛?
+java_version_guide:
+  minecraft_1_7_to_1_16:
+    versions: ["1.7.10", "1.8.9", "1.12.2", "1.14.4", "1.15.2", "1.16.5"]
+    java: "8"
+    
+  minecraft_1_17:
+    versions: ["1.17", "1.17.1"]
+    java: "17"  # 涔熷彲浠ョ敤 16
+    
+  minecraft_1_18_to_1_20_4:
+    versions: ["1.18", "1.18.2", "1.19", "1.19.4", "1.20", "1.20.4"]
+    java: "17"
+    
+  minecraft_1_20_5_plus:
+    versions: ["1.20.5", "1.20.6", "1.21", "1.21.4", "1.21.8"]
+    java: "21"
+
+# 甯歌鏋勫缓鍛戒护
+build_commands:
+  standard_gradle: "./gradlew build --no-daemon --stacktrace"
+  skip_tests: "./gradlew build -x test"
+  only_jar: "./gradlew jar"
+  clean_build: "./gradlew clean build"
+  maven_package: "mvn package -B"
+  maven_skip_tests: "mvn package -B -DskipTests"
+
+# 浜х墿璺緞妯℃澘
+artifact_paths:
+  standard: "build/libs/*.jar"
+  architectury_fabric_forge: "fabric/build/libs/*.jar,forge/build/libs/*.jar"
+  architectury_all: "fabric/build/libs/*.jar,forge/build/libs/*.jar,neoforge/build/libs/*.jar"
+  common_included: "common/build/libs/*.jar,fabric/build/libs/*.jar,forge/build/libs/*.jar"
+  with_sources: "build/libs/*.jar,build/libs/*-sources.jar"
+  maven_target: "target/*.jar"
