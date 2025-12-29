@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       repo_url:
-        description: 'Repository URL (e.g., https://github.com/FabricMC/yarn or owner/repo)'
+        description: 'Repository (e.g., FabricMC/yarn or https://github.com/FabricMC/yarn)'
         required: true
         type: string
       branch:
-        description: 'Branch/Tag to build (e.g., 1.21.8, master, v1.0.0)'
+        description: 'Branch/Tag to build (e.g., 1.21.8, main, v1.0.0)'
         required: true
         default: 'main'
         type: string
       java_version:
-        description: 'Java version to use'
+        description: 'Java version'
         required: true
         default: '21'
         type: choice
@@ -28,101 +28,137 @@ on:
         default: ''
         type: string
       artifact_path:
-        description: 'Path to artifacts (comma-separated, e.g., build/libs/*.jar,output/)'
+        description: 'Artifact paths (comma-separated, e.g., build/libs/*.jar)'
         required: false
         default: 'build/libs/*.jar'
         type: string
 
+env:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true"
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     
     steps:
-      - name: Parse repository URL
+      - name: 馃搵 Parse repository URL
         id: parse_repo
         run: |
           REPO_URL="${{ github.event.inputs.repo_url }}"
+          
           # Handle full URLs
           if [[ "$REPO_URL" == https://github.com/* ]]; then
             REPO_URL=$(echo "$REPO_URL" | sed 's|https://github.com/||' | sed 's|\.git$||' | sed 's|/$||')
           fi
+          
+          # Validate format
+          if [[ ! "$REPO_URL" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "鉂?Invalid repository format: $REPO_URL"
+            echo "Expected format: owner/repo or https://github.com/owner/repo"
+            exit 1
+          fi
+          
           echo "repo=$REPO_URL" >> $GITHUB_OUTPUT
-          echo "Parsed repository: $REPO_URL"
+          echo "鉁?Parsed repository: $REPO_URL"
 
-      - name: Checkout target repository
+      - name: 馃摜 Checkout target repository
         uses: actions/checkout@v4
         with:
           repository: ${{ steps.parse_repo.outputs.repo }}
           ref: ${{ github.event.inputs.branch }}
           fetch-depth: 0
 
-      - name: Set up JDK ${{ github.event.inputs.java_version }}
+      - name: 鈽?Set up JDK ${{ github.event.inputs.java_version }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ github.event.inputs.java_version }}
           distribution: 'temurin'
           cache: gradle
 
-      - name: Detect build system
+      - name: 馃攳 Detect build system
         id: detect
         run: |
+          echo "馃搨 Project structure:"
+          ls -la
+          
           if [ -f "gradlew" ]; then
-            echo "build_system=gradle" >> $GITHUB_OUTPUT
+            echo "build_system=gradle-wrapper" >> $GITHUB_OUTPUT
             echo "build_cmd=./gradlew build --no-daemon --stacktrace" >> $GITHUB_OUTPUT
+            echo "鉁?Detected: Gradle Wrapper"
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            echo "build_system=gradle" >> $GITHUB_OUTPUT
+            echo "build_cmd=gradle build --no-daemon --stacktrace" >> $GITHUB_OUTPUT
+            echo "鉁?Detected: Gradle (no wrapper)"
           elif [ -f "pom.xml" ]; then
             echo "build_system=maven" >> $GITHUB_OUTPUT
             echo "build_cmd=mvn package -B" >> $GITHUB_OUTPUT
-          elif [ -f "build.gradle" ]; then
-            echo "build_system=gradle" >> $GITHUB_OUTPUT
-            echo "build_cmd=gradle build --no-daemon --stacktrace" >> $GITHUB_OUTPUT
+            echo "鉁?Detected: Maven"
           else
             echo "build_system=unknown" >> $GITHUB_OUTPUT
             echo "build_cmd=echo 'No build system detected'" >> $GITHUB_OUTPUT
+            echo "鈿狅笍 Warning: No build system detected"
           fi
 
-      - name: Grant execute permission for gradlew
-        if: steps.detect.outputs.build_system == 'gradle'
+      - name: 馃敡 Grant execute permission for gradlew
+        if: steps.detect.outputs.build_system == 'gradle-wrapper'
+        run: chmod +x gradlew
+
+      - name: 馃搵 Show build info
         run: |
-          if [ -f "gradlew" ]; then
-            chmod +x gradlew
-          fi
+          echo "鈺斺晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晽"
+          echo "鈺?          BUILD INFORMATION              鈺?
+          echo "鈺犫晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨暎"
+          echo "鈺?Repository: ${{ steps.parse_repo.outputs.repo }}"
+          echo "鈺?Branch:     ${{ github.event.inputs.branch }}"
+          echo "鈺?Java:       ${{ github.event.inputs.java_version }}"
+          echo "鈺?Build:      ${{ steps.detect.outputs.build_system }}"
+          echo "鈺氣晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨暆"
 
-      - name: Build project
+      - name: 馃敤 Build project
         run: |
           CUSTOM_CMD="${{ github.event.inputs.build_command }}"
           if [ -n "$CUSTOM_CMD" ]; then
-            echo "Using custom build command: $CUSTOM_CMD"
+            echo "馃敤 Using custom build command: $CUSTOM_CMD"
             eval "$CUSTOM_CMD"
           else
-            echo "Using detected build command: ${{ steps.detect.outputs.build_cmd }}"
+            echo "馃敤 Using detected build command: ${{ steps.detect.outputs.build_cmd }}"
             ${{ steps.detect.outputs.build_cmd }}
           fi
 
-      - name: Prepare artifact paths
-        id: artifacts
+      - name: 馃摝 List built files
+        if: always()
         run: |
-          PATHS="${{ github.event.inputs.artifact_path }}"
-          # Convert comma-separated paths to newline-separated for upload
-          echo "paths<<EOF" >> $GITHUB_OUTPUT
-          echo "$PATHS" | tr ',' '\n' >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "=== 馃摝 Built JAR files ==="
+          find . -name "*.jar" -type f 2>/dev/null | grep -v ".gradle" | head -50 || echo "No JAR files found"
+          
+          echo ""
+          echo "=== 馃搧 Build directory contents ==="
+          if [ -d "build/libs" ]; then
+            ls -lah build/libs/
+          else
+            echo "No build/libs directory found"
+          fi
+          
+          # Check for multi-module projects
+          for dir in fabric forge neoforge common; do
+            if [ -d "$dir/build/libs" ]; then
+              echo ""
+              echo "=== 馃搧 $dir/build/libs ==="
+              ls -lah "$dir/build/libs/"
+            fi
+          done
 
-      - name: Upload build artifacts
+      - name: 馃摛 Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ github.event.inputs.branch }}-${{ github.run_number }}
-          path: ${{ steps.artifacts.outputs.paths }}
+          path: |
+            ${{ github.event.inputs.artifact_path }}
           retention-days: 30
           if-no-files-found: warn
 
-      - name: List built files
-        run: |
-          echo "=== Built files ==="
-          find . -name "*.jar" -type f 2>/dev/null | head -50 || true
-          echo "=== Build directory ==="
-          ls -la build/libs/ 2>/dev/null || echo "No build/libs directory"
-
-      - name: Create Release
+      - name: 馃彿锔?Create Release
         if: success()
         uses: softprops/action-gh-release@v1
         with:
@@ -130,14 +166,51 @@ jobs:
           name: "${{ steps.parse_repo.outputs.repo }} @ ${{ github.event.inputs.branch }} (#${{ github.run_number }})"
           files: |
             build/libs/*.jar
+            fabric/build/libs/*.jar
+            forge/build/libs/*.jar
+            neoforge/build/libs/*.jar
+          fail_on_unmatched_files: false
           draft: false
           prerelease: false
           body: |
-            ## Build Information
-            - **Source Repository**: `${{ steps.parse_repo.outputs.repo }}`
-            - **Branch/Tag**: `${{ github.event.inputs.branch }}`
-            - **Java Version**: `${{ github.event.inputs.java_version }}`
-            - **Build System**: `${{ steps.detect.outputs.build_system }}`
-            - **Build Number**: `#${{ github.run_number }}`
+            ## 馃敤 Build Information
+            
+            | Property | Value |
+            |----------|-------|
+            | **Source Repository** | [`${{ steps.parse_repo.outputs.repo }}`](https://github.com/${{ steps.parse_repo.outputs.repo }}) |
+            | **Branch/Tag** | `${{ github.event.inputs.branch }}` |
+            | **Java Version** | `${{ github.event.inputs.java_version }}` |
+            | **Build System** | `${{ steps.detect.outputs.build_system }}` |
+            | **Build Number** | `#${{ github.run_number }}` |
+            | **Build Time** | `${{ github.event.head_commit.timestamp }}` |
+            
+            ---
+            
+            馃摜 Download the JAR files below or from the [Actions Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 鉁?Build Summary
+        if: success()
+        run: |
+          echo "# 鉁?Build Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Build Details" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Repository | \`${{ steps.parse_repo.outputs.repo }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.event.inputs.branch }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Java | \`${{ github.event.inputs.java_version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Download" >> $GITHUB_STEP_SUMMARY
+          echo "Check the **Artifacts** section below to download the built files." >> $GITHUB_STEP_SUMMARY
+
+      - name: 鉂?Build Failed Summary
+        if: failure()
+        run: |
+          echo "# 鉂?Build Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Troubleshooting" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check if the Java version is correct for this Minecraft version" >> $GITHUB_STEP_SUMMARY
+          echo "2. Try using a custom build command (e.g., \`./gradlew build -x test\`)" >> $GITHUB_STEP_SUMMARY
+          echo "3. Check the build logs above for specific errors" >> $GITHUB_STEP_SUMMARY
